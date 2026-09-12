@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: bukobero-jr-bot
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node start.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+      - key: MAX_SESSIONS
+        value: "5"

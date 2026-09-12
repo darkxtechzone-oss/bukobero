@@ -1,0 +1,28 @@
+{
+  "name": "Bukobero jr",
+  "description": "Multi-device WhatsApp Bot — Bukobero jr. This software provided by DarkX Team.",
+  "logo": "https://files.catbox.moe/pc5uec.png",
+  "keywords": ["bot", "whatsapp", "baileys", "bukobero-jr", "mongodb"],
+  "env": {
+    "MONGODB_URI": {
+      "description": "MongoDB connection string used to store WhatsApp session credentials",
+      "required": true
+    },
+    "MAX_SESSIONS": {
+      "description": "Maximum number of WhatsApp numbers this bot may have linked at once",
+      "value": "5",
+      "required": false
+    },
+    "PORT": {
+      "description": "Port the web dashboard listens on",
+      "value": "3000",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}

@@ -1,18 +1,435 @@
-const config = require("./config");
-const { resumeExistingSessions } = require("./sessionManager");
-const { startWebServer } = require("./webserver");
+"use strict";
 
-async function main() {
-  console.log(`🤴 Inaanzisha ${config.BOT_NAME} ...`);
+/**
+ * Project: Bukobero jr
+ * Multi-device session engine.
+ * Each paired phone number gets its own Baileys socket + its own auth
+ * saved in MongoDB, so many numbers can be connected at the same time —
+ * up to the global session limit (config.MAX_SESSIONS).
+ */
 
-  // Rudisha session zilizokuwa zimeunganishwa kabla (mpaka MAX_SESSIONS)
-  await resumeExistingSessions();
+const pino = require('pino');
+const chalkImport = require('chalk');
+const chalk = chalkImport.default || chalkImport;
 
-  // Anzisha seva ya wavuti kwa ajili ya pairing (namba -> pairing code)
-  startWebServer();
+const config = require('./config');
+const { smsg } = require('./serialize');
+const { getBotResponse } = require('./brain');
+const { getSettings } = require('./settingsStore');
+const { useMongoAuthState, removeMongoSession, mongoSessionExists, listMongoSessionIds } = require('./mongoAuthState');
+
+process.on('uncaughtException', (err) => {
+    console.error(chalk.red('CRITICAL ERROR (Uncaught Exception):'), err);
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error(chalk.red('CRITICAL ERROR (Unhandled Rejection):'), reason);
+});
+
+// --- Dynamic Baileys import (loaded once, reused for every session) ---
+let makeWASocket,
+    Browsers,
+    DisconnectReason,
+    fetchLatestBaileysVersion,
+    jidDecode,
+    delay,
+    makeCacheableSignalKeyStore;
+
+let baileysReady = null;
+const loadBaileys = () => {
+    if (!baileysReady) {
+        baileysReady = import('@whiskeysockets/baileys').then((baileys) => {
+            makeWASocket =
+                typeof baileys.default === 'function'
+                    ? baileys.default
+                    : typeof baileys.makeWASocket === 'function'
+                    ? baileys.makeWASocket
+                    : typeof baileys.default?.default === 'function'
+                    ? baileys.default.default
+                    : null;
+
+            if (typeof makeWASocket !== 'function') {
+                throw new Error('makeWASocket was not found in @whiskeysockets/baileys. Check the installed version in package.json.');
+            }
+
+            Browsers = baileys.Browsers || baileys.default?.Browsers;
+            DisconnectReason = baileys.DisconnectReason || baileys.default?.DisconnectReason;
+            fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion || baileys.default?.fetchLatestBaileysVersion;
+            jidDecode = baileys.jidDecode || baileys.default?.jidDecode;
+            delay = baileys.delay || baileys.default?.delay;
+            makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore || baileys.default?.makeCacheableSignalKeyStore;
+
+            const missing = [];
+            if (!Browsers) missing.push('Browsers');
+            if (!DisconnectReason) missing.push('DisconnectReason');
+            if (!fetchLatestBaileysVersion) missing.push('fetchLatestBaileysVersion');
+            if (!jidDecode) missing.push('jidDecode');
+            if (!delay) missing.push('delay');
+            if (!makeCacheableSignalKeyStore) missing.push('makeCacheableSignalKeyStore');
+
+            if (missing.length) {
+                throw new Error(`Missing Baileys exports: ${missing.join(', ')}`);
+            }
+        }).catch((e) => {
+            console.error(chalk.red('Failed to load Baileys library:'), e);
+            process.exit(1);
+        });
+    }
+    return baileysReady;
+};
+
+// Global auto-AI toggle (kept as a simple in-memory flag)
+let autoAi = config.autoAi || false;
+
+const activeSockets = {};
+const reconnectAttempts = {}; // sessionId -> consecutive failed-reconnect count
+
+function decodeJidFactory() {
+    return (jid) => {
+        if (!jid) return jid;
+        if (/:\d+@/gi.test(jid)) {
+            let decode = jidDecode(jid) || {};
+            return (decode.user && decode.server && decode.user + '@' + decode.server) || jid;
+        }
+        return jid;
+    };
 }
 
-main().catch((err) => {
-  console.error("Hitilafu kubwa:", err);
-  process.exit(1);
-});
+/**
+ * True if the bot is already at its global session limit (config.MAX_SESSIONS)
+ * and a brand-new number should be refused. Re-linking a number that's
+ * already known (reconnect) is always allowed regardless of the cap.
+ */
+async function isAtSessionLimit() {
+    const known = await listAllSessions();
+    return known.length >= (config.MAX_SESSIONS || 5);
+}
+
+/**
+ * Starts (or resumes) a WhatsApp session for the given phone number.
+ * @param {string} number  Phone number (digits only) used as the session id.
+ * @param {object} io      socket.io server, used to relay pairing codes / status to the web UI (optional).
+ * @param {function} onPairingCode  Optional callback fired with the pairing code once generated.
+ */
+async function startBot(number, io, onPairingCode) {
+    await loadBaileys();
+
+    const sessionId = String(number).replace(/[^0-9]/g, '');
+
+    const { state, saveCreds } = await useMongoAuthState(sessionId);
+    const { version } = await fetchLatestBaileysVersion();
+
+    const sock = makeWASocket({
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false,
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })),
+        },
+        version,
+        browser: Browsers.ubuntu('Chrome'),
+        markOnlineOnConnect: true,
+        generateHighQualityLinkPreview: true,
+        getMessage: async () => undefined,
+        keepAliveIntervalMs: 20_000,
+        connectTimeoutMs: 60_000,
+        defaultQueryTimeoutMs: 60_000,
+        qrTimeout: 60_000,
+        emitOwnEvents: true,
+        retryRequestDelayMs: 2_000,
+        maxMsgRetryCount: 5,
+    });
+
+    activeSockets[sessionId] = sock;
+    sock.decodeJid = decodeJidFactory();
+    sock.sessionId = sessionId;
+
+    // --- Pairing code (web-driven instead of terminal prompt) ---
+    if (!state.creds?.registered) {
+        try {
+            await delay(1500);
+            const code = await sock.requestPairingCode(sessionId);
+            const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
+            console.log(chalk.green(`👑 Pairing code for ${sessionId}: ${formattedCode}`));
+            if (typeof onPairingCode === 'function') onPairingCode(formattedCode);
+            if (io) io.emit('pairing-code', { number: sessionId, code: formattedCode });
+        } catch (err) {
+            console.log(chalk.red(`❌ Failed to request pairing code: ${err.message}`));
+            if (io) io.emit('pairing-error', { number: sessionId, error: err.message });
+        }
+    }
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect } = update;
+
+        if (connection === 'connecting') {
+            console.log(chalk.yellow(`🔄 Connecting session ${sessionId}...`));
+        }
+
+        if (connection === 'open') {
+            const sessionSettings = getSettings(sessionId);
+            reconnectAttempts[sessionId] = 0; // connection is healthy again, reset backoff
+            console.log(chalk.green(`✅ ${sessionSettings.botName} (${sessionId}) connected!`));
+            if (io) io.emit('connected', { number: sessionId });
+        }
+
+        if (connection === 'close') {
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+            console.log(chalk.red(`❌ Session ${sessionId} closed (code: ${statusCode || 'unknown'}). Reconnecting: ${shouldReconnect}`));
+            if (io) io.emit('disconnected', { number: sessionId, willReconnect: shouldReconnect });
+
+            try { sock.ev.removeAllListeners(); } catch (_) {}
+            delete activeSockets[sessionId];
+
+            if (shouldReconnect) {
+                const attempt = (reconnectAttempts[sessionId] || 0) + 1;
+                reconnectAttempts[sessionId] = attempt;
+                const backoffMs = Math.min(5_000 * Math.pow(2, attempt - 1), 5 * 60_000);
+
+                setTimeout(async () => {
+                    if (!activeSockets[sessionId] && (await mongoSessionExists(sessionId))) {
+                        startBot(sessionId, io).catch((err) =>
+                            console.log(chalk.red(`❌ Reconnect failed for ${sessionId}: ${err.message}`))
+                        );
+                    }
+                }, backoffMs);
+            } else {
+                removeMongoSession(sessionId).catch(() => {});
+                delete reconnectAttempts[sessionId];
+                console.log(chalk.red(`👋 Session ${sessionId} logged out.`));
+            }
+        }
+    });
+
+    sock.ev.on('messages.upsert', async (chatUpdate) => {
+        try {
+            if (chatUpdate.type !== 'notify') return;
+
+            const mek = chatUpdate.messages[0];
+            if (!mek?.message) return;
+
+            const msgType = Object.keys(mek.message)[0];
+            if (msgType === 'ephemeralMessage' || msgType === 'viewOnceMessage' || msgType === 'viewOnceMessageV2') {
+                mek.message = mek.message[msgType].message;
+            }
+
+            const m = smsg(sock, mek);
+            const body = m.body || '';
+
+            const settings = getSettings(sessionId);
+            const isOwner = m.key.fromMe || settings.ownerNumber === m.sender.split('@')[0];
+
+            // --- AUTO VIEW / REACT STATUS ---
+            if (m.chat === 'status@broadcast') {
+                try {
+                    if (settings.autoViewStatus) {
+                        await sock.readMessages([mek.key]);
+                    }
+                    if (settings.autoReactStatus) {
+                        const statusReactions = settings.statusEmojis?.length ? settings.statusEmojis : ['🔥'];
+                        const randomReaction = statusReactions[Math.floor(Math.random() * statusReactions.length)];
+                        await sock.sendMessage(
+                            'status@broadcast',
+                            { react: { text: randomReaction, key: mek.key } },
+                            { statusJidList: [m.sender] }
+                        );
+                    }
+                } catch (statusError) {
+                    console.log(chalk.red('Status react/view error:'), statusError.message);
+                }
+                return;
+            }
+
+            // --- AUTO READ CHAT ---
+            if (settings.autoReadChat) {
+                await sock.readMessages([mek.key]);
+            }
+
+            // --- AUTO TYPING / RECORDING ---
+            if (settings.autoTyping) {
+                await sock.sendPresenceUpdate('composing', m.chat);
+            }
+            if (settings.autoRecording) {
+                await sock.sendPresenceUpdate('recording', m.chat);
+            }
+
+            // --- AUTO REACT NORMAL CHAT ---
+            if (settings.autoReactChat && !m.isBaileys && !m.key.fromMe) {
+                const chatEmojis = settings.chatEmojis?.length ? settings.chatEmojis : ['😆'];
+                const randomEmoji = chatEmojis[Math.floor(Math.random() * chatEmojis.length)];
+                await sock.sendMessage(m.chat, { react: { text: randomEmoji, key: m.key } });
+            }
+
+            // --- AI TOGGLE ---
+            const pfx = settings.prefix || '.';
+            if (body === `${pfx}aion` && isOwner) {
+                autoAi = true;
+                return await sock.sendMessage(m.chat, { text: `✅ *${config.botName} AI:* Auto-Reply is now ON!` }, { quoted: m });
+            }
+            if (body === `${pfx}aioff` && isOwner) {
+                autoAi = false;
+                return await sock.sendMessage(m.chat, { text: `📴 *${config.botName} AI:* Auto-Reply is now OFF!` }, { quoted: m });
+            }
+
+            // --- AI REPLY ---
+            if (autoAi && body && !m.key.fromMe && !m.isGroup) {
+                const aiResponse = getBotResponse(body);
+                if (aiResponse) {
+                    await sock.sendMessage(m.chat, { text: aiResponse }, { quoted: m });
+                }
+            }
+
+            // --- MAIN COMMAND HANDLER (plugins in /command) ---
+            require('./message')(sock, m, chatUpdate);
+        } catch (err) {
+            console.error(chalk.red('Error in message event loop: '), err);
+        }
+    });
+
+    // --- GROUP JOIN / LEAVE: welcome, goodbye, antibot, antifake ---
+    sock.ev.on('group-participants.update', async ({ id: chat, participants, action }) => {
+        try {
+            if (!global.db) return;
+            if (typeof global.db.groups[chat] !== 'object') global.db.groups[chat] = {};
+            const group = global.db.groups[chat];
+
+            const groupMetadata = await sock.groupMetadata(chat).catch(() => null);
+            const groupName = groupMetadata?.subject || 'this group';
+
+            for (const participant of participants) {
+                const number = participant.split('@')[0];
+
+                if (action === 'add') {
+                    if (group.antifake) {
+                        const allowedPrefixes = ['255', '254', '256', '257', '250']; // EA region by default
+                        if (!allowedPrefixes.some((p) => number.startsWith(p))) {
+                            await sock.groupParticipantsUpdate(chat, [participant], 'remove').catch(() => {});
+                            continue;
+                        }
+                    }
+
+                    if (group.welcome) {
+                        const template = group.setWelcome && group.setWelcome.trim()
+                            ? group.setWelcome
+                            : `👋 Welcome @user to *${groupName}*! Please read the group rules.`;
+                        const text = template.replace(/@user/gi, `@${number}`);
+                        await sock.sendMessage(chat, { text, mentions: [participant] }).catch(() => {});
+                    }
+                }
+
+                if (action === 'remove' && group.goodbye) {
+                    const template = group.setGoodbye && group.setGoodbye.trim()
+                        ? group.setGoodbye
+                        : `👋 @user has left *${groupName}*. Goodbye!`;
+                    const text = template.replace(/@user/gi, `@${number}`);
+                    await sock.sendMessage(chat, { text, mentions: [participant] }).catch(() => {});
+                }
+            }
+        } catch (err) {
+            console.error(chalk.red('Error in group-participants.update: '), err.message);
+        }
+    });
+
+    return sock;
+}
+
+/**
+ * Resumes every session already saved in MongoDB (e.g. after a restart/redeploy).
+ */
+async function resumeExistingSessions(io) {
+    let existing = [];
+    try {
+        existing = await listMongoSessionIds();
+    } catch (err) {
+        console.log(chalk.red(`❌ Could not load sessions from MongoDB: ${err.message}`));
+        return;
+    }
+
+    for (const sessionId of existing) {
+        console.log(chalk.cyan(`💫 Resuming saved session: ${sessionId}`));
+        startBot(sessionId, io).catch((err) =>
+            console.log(chalk.red(`❌ Failed to resume session ${sessionId}: ${err.message}`))
+        );
+    }
+}
+
+/**
+ * Watchdog: every 5 minutes, checks that every socket we think is "active"
+ * still has a genuinely open underlying websocket, and restarts any that
+ * look stuck.
+ */
+function startWatchdog(io) {
+    setInterval(() => {
+        for (const sessionId of Object.keys(activeSockets)) {
+            const sock = activeSockets[sessionId];
+            const readyState = sock?.ws?.socket?.readyState ?? sock?.ws?.readyState;
+            if (readyState !== undefined && readyState !== 1) {
+                console.log(chalk.yellow(`🩺 Watchdog: session ${sessionId} looks stuck (readyState ${readyState}), restarting...`));
+                try { sock.ev.removeAllListeners(); } catch (_) {}
+                try { sock.ws?.close?.(); } catch (_) {}
+                delete activeSockets[sessionId];
+                startBot(sessionId, io).catch((err) =>
+                    console.log(chalk.red(`❌ Watchdog restart failed for ${sessionId}: ${err.message}`))
+                );
+            }
+        }
+    }, 5 * 60_000);
+}
+
+/**
+ * Fully removes a session: logs it out of WhatsApp (best-effort), tears
+ * down its socket, and deletes its saved credentials from MongoDB.
+ */
+async function deleteSession(number) {
+    const sessionId = String(number).replace(/[^0-9]/g, '');
+    const sock = activeSockets[sessionId];
+
+    if (sock) {
+        try { await sock.logout(); } catch (_) {}
+        try { sock.ev.removeAllListeners(); } catch (_) {}
+        delete activeSockets[sessionId];
+    }
+    delete reconnectAttempts[sessionId];
+
+    await removeMongoSession(sessionId).catch(() => {});
+    return true;
+}
+
+/**
+ * Lists every known session (currently connected or previously saved in
+ * MongoDB), with its connection status and owner info.
+ */
+async function listAllSessions() {
+    let stored = [];
+    try {
+        stored = await listMongoSessionIds();
+    } catch (_) {}
+
+    const allIds = new Set([...stored, ...Object.keys(activeSockets)]);
+
+    return [...allIds].map((sessionId) => {
+        const settings = getSettings(sessionId);
+        return {
+            number: sessionId,
+            connected: !!activeSockets[sessionId],
+            botName: settings.botName,
+            ownerNumber: settings.ownerNumber,
+        };
+    });
+}
+
+module.exports = {
+    startBot,
+    resumeExistingSessions,
+    activeSockets,
+    startWatchdog,
+    deleteSession,
+    listAllSessions,
+    isAtSessionLimit,
+    mongoSessionExists,
+    removeMongoSession,
+};

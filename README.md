@@ -1,71 +1,82 @@
-# 🤴 BUKOBERO JR — WhatsApp Bot
+# Bukobero jr
 
-Bot ya WhatsApp iliyojengwa kwa [Baileys](https://github.com/WhiskeySockets/Baileys), yenye:
+Multi-device WhatsApp bot with a simple web dashboard for pairing and
+settings. **This software provided by DarkX Team** — see [LICENSE](#license)
+below.
 
-- 🌐 **Web pairing** — unganisha WhatsApp yako kwa kuandika namba tu, bila QR
-- 👥 **Multisession** — hadi watumiaji **3** wanaweza kuunganisha bot kwa wakati mmoja
-- 🔵 **Ukurasa wa wavuti wenye mtindo wa kiume (blue/gold)** wenye leseni ya matumizi (DarkX)
-- 🅱️ **Menu yenye fonti nzito (bold)** na picha
-- 👀 **Kuona na kupenda status** kiotomatiki
+## Features
 
-## Muundo wa Faili
+- 🔗 Pair up to **5 WhatsApp numbers at once** (see `MAX_SESSIONS`)
+- ⚙️ Simple web dashboard: **Link Device** + **Login / Settings** only — no
+  admin panel, no subscriptions, no payments
+- 🧩 Full command set (75+ plugins) — everything is open to everyone by
+  default, nothing is locked behind a plan
+- 👤 You set your own owner number, bot name, and prefix from the web
+  Settings panel — nothing is hardcoded
+
+## Project structure
+
+This project is intentionally **flat** — every engine/library file lives
+directly in the project root. The only folder is `command/`, which holds
+every bot command (plugin).
 
 ```
-BukoberoJr/
-├── index.js          # kianzio kikuu
-├── config.js          # mipangilio yote
-├── handler.js         # kisambaza amri
-├── helpers.js          # zana za msaada (bold text, owner check, n.k.)
-├── sessionManager.js   # usimamizi wa session nyingi (max 3)
-├── webserver.js        # seva ya wavuti ya pairing
-├── pair.html            # ukurasa wa wavuti wa pairing
-├── package.json
-├── commands/
-│   ├── general.js     # menu, ping, info
-│   ├── downloader.js  # yt, tiktok, ig
-│   ├── group.js       # kick, promote, demote
-│   └── status.js      # autostatus on/off
-└── image/
-    └── menu.jpg        # picha ya menu
+index.js            → multi-session WhatsApp engine
+message.js            → command dispatcher (loads everything in /command)
+start.js                → entry point (web server + socket.io)
+config.js                 → base settings (edit MAX_SESSIONS etc. here or via env)
+settingsStore.js            → per-number settings (owner, prefix, reactions...)
+serialize.js                  → raw Baileys message → convenient "m" object
+mongo.js / mongoAuthState.js    → MongoDB-backed session storage
+database.js                       → group data (welcome/goodbye/mute/warn)
+brain.js                            → simple AI auto-reply (.aion / .aioff)
+function.js / media.js / mediaVault.js / userMongo.js → utility helpers
+ffmpeg.js                             → audio/video conversion helper
+index.html / app.js / routes.js / socket.js → the web dashboard
+license.html                           → the license page (see below)
+command/                                → all 75+ bot commands live here
 ```
 
-## Jinsi ya Kuanzisha
+## Running it
 
-```bash
-npm install
-npm start
-```
+1. `npm install`
+2. Set the `MONGODB_URI` environment variable to your own MongoDB
+   connection string (this project never falls back to a shared database).
+3. `npm start`
+4. Open the web address shown in the console → **Link Device** → enter your
+   WhatsApp number → enter the pairing code on WhatsApp → Linked Devices.
+5. Go to **Login / Settings** any time afterwards to set your bot's name,
+   owner number, prefix, and reaction behavior.
 
-Kisha fungua kivinjari: `http://localhost:3000`
+## Session limit
 
-1. Andika namba yako ya WhatsApp (pamoja na country code, mfano `255712345678`)
-2. Bonyeza **"✨ Pata Pairing Code"**
-3. Kwenye simu: WhatsApp → Mipangilio → Vifaa Vilivyounganishwa → Unganisha kifaa → *"Unganisha kwa namba badala yake"* → weka code uliyopewa
+This bot allows at most `MAX_SESSIONS` linked WhatsApp numbers at once
+(default: 5). Set a different value via the `MAX_SESSIONS` environment
+variable.
 
-Session zinahifadhiwa kwenye folda `session/<namba>/` ili usilazimike ku-pair kila unapowasha bot tena.
+## The `.menu` command
 
-## Mipangilio Muhimu (`config.js`)
+Every time `.menu` runs, it lists every available command and ends with:
 
-| Kigezo | Maana |
-|---|---|
-| `BOT_NAME` | Jina la bot |
-| `PREFIX` | Alama ya amri (mfano `.`) |
-| `OWNER_NUMBERS` | Namba za owner |
-| `MAX_SESSIONS` | Idadi ya watumiaji wanaoruhusiwa kuunganisha kwa wakati mmoja (3) |
-| `AUTO_VIEW_STATUS` / `AUTO_LIKE_STATUS` | Kuwasha/kuzima kuona na kupenda status |
-| `MENU_IMAGE` | Njia ya picha inayotumika kwenye `.menu` |
+> This software provided by DarkX Team
 
-## Amri za Bot
+This line is not configurable from the dashboard — it always appears,
+per the license below.
 
-- `.menu` — onyesha menu (yenye picha)
-- `.ping` — angalia speed
-- `.info` — taarifa za bot
-- `.yt <link>` — pakua video ya YouTube
-- `.tiktok <link>` — pakua video ya TikTok
-- `.ig <link>` — pakua kutoka Instagram
-- `.kick / .promote / .demote @tag` — usimamizi wa group (admin)
-- `.autostatus on/off` — washa/zima kuona na kupenda status (owner)
+## License
 
-## Leseni
+See [`license.html`](./license.html) (also served at `/license` once the
+bot is running). In short:
 
-Software hii inatolewa na **DarkX**. Haturuhusu kunakili, kusambaza au kuuza bila ruhusa rasmi — angalia maandishi madogo chini ya ukurasa wa pairing kwa maelezo kamili.
+- **This software provided by DarkX Team.**
+- You may **not** sell or resell this software.
+- You may **not** modify and redistribute it as your own product.
+- You may **not** remove the "This software provided by DarkX Team"
+  credit from the dashboard or the `.menu` command.
+
+## Community
+
+💬 Join the WhatsApp group: https://chat.whatsapp.com/J5t4uR9W99m8DJXNisMzdr
+
+---
+This software provided by DarkX Team.

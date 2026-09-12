@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bukobero jr | Dashboard</title>
+<link rel="icon" href="https://files.catbox.moe/pc5uec.png" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  html, body { height: 100%; }
+
+  :root {
+    --bg: #f4f2fb;
+    --text: #241c3a;
+    --muted: #6f6789;
+    --card-bg: #ffffff;
+    --border: #e7e1f7;
+    --input-bg: #f8f6ff;
+    --row-bg: #f8f6fd;
+    --shadow: rgba(123,47,247,0.06);
+  }
+  [data-theme="dark"] {
+    --bg: #14101f;
+    --text: #efe9ff;
+    --muted: #a79ec2;
+    --card-bg: #1e1830;
+    --border: #322a4a;
+    --input-bg: #241c38;
+    --row-bg: #241c38;
+    --shadow: rgba(0,0,0,0.35);
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  a { color: inherit; }
+
+  /* ---------- Side menu ---------- */
+  .side-menu {
+    position: fixed; top: 0; left: 0; width: 250px; height: 100vh;
+    background: var(--card-bg); border-right: 1px solid var(--border);
+    box-shadow: 4px 0 24px rgba(123,47,247,0.06);
+    z-index: 300; display: flex; flex-direction: column; padding: 22px 16px;
+    transition: transform 0.25s ease;
+  }
+  .side-brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 22px; }
+  .side-brand img { width: 38px; height: 38px; border-radius: 10px; box-shadow: 0 0 14px rgba(158,92,255,0.35); }
+  .side-brand h1 { font-size: 16px; color: var(--text); }
+  .side-brand span { display: block; font-size: 10px; color: #8a80a8; font-weight: 400; }
+
+  .side-nav { display: flex; flex-direction: column; gap: 6px; flex: 1; overflow-y: auto; }
+  .side-link {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px;
+    background: transparent; border: none; color: #4a4266; font-size: 14px; font-weight: 600;
+    cursor: pointer; text-align: left; width: 100%; text-decoration: none; transition: 0.15s;
+  }
+  .side-link:hover { background: #f2eefd; }
+  .side-link.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
+  .side-foot { font-size: 10px; color: var(--muted); text-align: center; padding-top: 14px; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+  .admin-hint-link { color: var(--muted); opacity: 0.35; font-size: 9px; text-decoration: none; letter-spacing: 0.5px; }
+  .admin-hint-link:hover { opacity: 0.9; }
+
+  .menu-toggle {
+    display: none; background: var(--card-bg); border: 1px solid #e7e1f7; border-radius: 10px;
+    width: 40px; height: 40px; align-items: center; justify-content: center; cursor: pointer; font-size: 18px;
+  }
+  .menu-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(20,10,40,0.35); z-index: 250;
+  }
+  .menu-overlay.show { display: block; }
+
+  /* ---------- Main area ---------- */
+  /* The side drawer stays off-canvas on every screen size now — primary
+     navigation lives in the fixed bottom nav bar instead of a top bar. */
+  .side-menu { transform: translateX(-100%); }
+  .side-menu.open { transform: translateX(0); }
+  .menu-toggle { display: flex; }
+  .main-wrap { margin-left: 0; min-height: 100vh; padding-bottom: 88px; }
+  .topbar-title { font-size: 15px; font-weight: 700; color: var(--text); text-align: center; padding: 18px 20px 0; }
+
+  /* ---------- Bottom nav bar ---------- */
+  .bottom-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
+    display: flex; align-items: stretch; justify-content: space-around;
+    background: var(--card-bg); border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px var(--shadow);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .bottom-nav-btn {
+    flex: 1; max-width: 110px; display: flex; flex-direction: column; align-items: center;
+    gap: 3px; background: transparent; border: none; color: var(--muted);
+    font-size: 10.5px; font-weight: 600; padding: 6px 4px; border-radius: 12px; cursor: pointer;
+    text-decoration: none;
+  }
+  .bottom-nav-btn .icon { font-size: 19px; }
+  .bottom-nav-btn:hover, .bottom-nav-btn:focus-visible { background: var(--row-bg); color: var(--text); }
+  .bottom-nav-btn.accent { color: #7b2ff7; }
+  .pill-btn {
+    display: flex; align-items: center; gap: 6px; background: #f2eefd;
+    border: 1px solid #ded2ff; color: #5b21c9; padding: 9px 16px;
+    border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
+    transition: 0.2s;
+  }
+  .pill-btn:hover { background: #e6dcff; transform: translateY(-1px); }
+  .pill-btn.subscribe { background: linear-gradient(135deg, #7b2ff7, #4a00e0); border-color: transparent; color: #fff; }
+
+  /* ---------- Hero ---------- */
+  .hero { text-align: center; padding: 44px 20px 8px; }
+  .hero h2 { font-size: 32px; background: linear-gradient(135deg, #4a00e0, #9e5cff); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 10px; }
+  .hero p { color: var(--muted); font-size: 15px; max-width: 620px; margin: 0 auto; line-height: 1.6; }
+
+  /* ---------- Wide layout ---------- */
+  .layout {
+    max-width: 1400px; margin: 0 auto; padding: 32px 32px 70px;
+    display: grid; grid-template-columns: 1fr; justify-items: center; gap: 28px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 24px;
+    padding: 44px 52px;
+    max-width: 680px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(123,47,247,0.08);
+    border: 1px solid var(--border);
+  }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 24px; background: var(--row-bg); border-radius: 14px; padding: 4px; }
+  .tab-btn {
+    flex: 1; padding: 12px; border: none; border-radius: 10px; background: transparent;
+    color: #8a80a8; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s;
+  }
+  .tab-btn.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
+
+  .panel { display: none; text-align: left; }
+  .panel.active { display: block; }
+
+  input, select, textarea {
+    width: 100%; padding: 14px 16px; border-radius: 14px; border: 2px solid var(--border);
+    background: var(--input-bg); color: var(--text); font-size: 15px; outline: none; margin-bottom: 14px;
+    transition: border-color 0.2s; font-family: inherit;
+  }
+  input::placeholder, textarea::placeholder { color: #a79ec2; }
+  input:focus, select:focus, textarea:focus { border-color: #9e5cff; background: var(--card-bg); }
+
+  label { display: block; color: #5b5478; font-size: 12.5px; margin-bottom: 6px; margin-top: 4px; font-weight: 600; }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--input-bg); border: 1px solid #e2dbf5; border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 10px;
+  }
+  .toggle-row span { color: #4a4266; font-size: 13px; }
+  .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  .switch input { display: none; }
+  .slider {
+    position: absolute; inset: 0; background: #ded2ff; border-radius: 999px; cursor: pointer; transition: 0.2s;
+  }
+  .slider::before {
+    content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px;
+    background: var(--card-bg); border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .switch input:checked + .slider { background: linear-gradient(135deg, #7b2ff7, #4a00e0); }
+  .switch input:checked + .slider::before { transform: translateX(20px); }
+
+  button.action {
+    width: 100%; padding: 15px 16px; border: none; border-radius: 14px;
+    background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; font-size: 15px;
+    font-weight: 600; cursor: pointer; transition: transform 0.15s; margin-top: 4px;
+  }
+  button.action:hover { transform: translateY(-2px); }
+  button.action:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  button.action.secondary-action {
+    background: var(--card-bg); color: #5b21c9; border: 2px solid #ded2ff;
+  }
+  button.link-btn {
+    background: transparent; border: none; color: #7b2ff7; font-size: 12.5px; margin-top: 10px;
+    cursor: pointer; width: 100%; text-decoration: underline;
+  }
+
+  #status, #login-status, #settings-status {
+    margin-top: 14px; font-size: 13px; color: var(--muted); min-height: 18px;
+  }
+  #code-box {
+    display: none; margin-top: 18px; padding: 18px; border-radius: 16px;
+    background: var(--input-bg); border: 2px dashed #9e5cff; text-align: center;
+  }
+  #code-box .label { font-size: 12px; color: #8a80a8; margin-bottom: 6px; }
+  #pairing-code { font-size: 30px; letter-spacing: 4px; font-weight: 700; color: #7b2ff7; }
+
+  footer { margin-top: 24px; font-size: 11px; color: #a79ec2; text-align: center; line-height: 1.6; }
+  .section-title { color: #4a4266; font-size: 13px; font-weight: 700; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .admin-link { color: #7b2ff7; text-decoration: none; font-weight: 600; }
+  .admin-link:hover { text-decoration: underline; }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(30, 15, 55, 0.45);
+    align-items: center; justify-content: center; z-index: 999; padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px;
+    padding: 30px; max-width: 420px; width: 100%; text-align: left;
+    box-shadow: 0 24px 60px rgba(80,30,150,0.18);
+  }
+  .modal-box.wide { max-width: 640px; max-height: 88vh; overflow-y: auto; }
+  .modal-box h2 { color: #4a00e0; font-size: 19px; margin-bottom: 16px; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .modal-error { color: #e0454a; font-size: 12px; min-height: 16px; margin-bottom: 8px; }
+  .modal-actions { display: flex; gap: 10px; align-items: center; }
+  .modal-actions .action { flex: 1; }
+
+  .admin-list { margin-bottom: 8px; max-height: 180px; overflow-y: auto; }
+
+  /* ---------- Admin dashboard shell (modular windows, ecommerce style) ---------- */
+  .admin-shell { max-width: 720px; max-height: 88vh; overflow-y: auto; }
+  .admin-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 4px;
+  }
+  .stat-card {
+    background: var(--row-bg); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 8px; text-align: center; display: flex; flex-direction: column; gap: 2px;
+  }
+  .stat-num { font-size: 20px; font-weight: 800; color: #7b2ff7; }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .admin-tabs {
+    display: flex; gap: 6px; overflow-x: auto; margin: 16px 0 18px; padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .admin-tab-btn {
+    flex-shrink: 0; padding: 9px 14px; border: none; border-radius: 999px; background: var(--row-bg);
+    color: var(--muted); font-weight: 600; font-size: 12.5px; cursor: pointer; transition: all 0.15s;
+  }
+  .admin-tab-btn.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
+
+  .admin-window { display: none; text-align: left; }
+  .admin-window.active { display: block; }
+  .admin-window .section-title { margin-top: 0; }
+  .admin-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--input-bg); border: 1px solid #e2dbf5; border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 6px; font-size: 13px;
+  }
+  .admin-row .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+  .dot.online { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .dot.offline { background: #b3aac9; }
+  .admin-row button {
+    border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer; font-weight: 600;
+  }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-secondary { background: #ded2ff; color: #4a00e0; }
+  .inline-form { display: flex; gap: 8px; }
+  .inline-form input { flex: 1; }
+  button.action.small { width: auto; padding: 11px 18px; margin-top: 0; }
+
+  /* ---------- Bug report sidebar (public) ---------- */
+  .bug-sidebar {
+    position: fixed; top: 0; right: -420px; width: 400px; max-width: 92vw; height: 100vh;
+    background: var(--card-bg); border-left: 1px solid var(--border);
+    box-shadow: -20px 0 50px rgba(80,30,150,0.12); z-index: 900; transition: right 0.3s ease;
+    display: flex; flex-direction: column;
+  }
+  .bug-sidebar.open { right: 0; }
+
+  /* ---------- Subscription UI ---------- */
+  .subnav { display: flex; gap: 6px; margin-bottom: 20px; background: var(--row-bg); border-radius: 12px; padding: 4px; flex-wrap: wrap; }
+  .subnav button {
+    flex: 1; min-width: 70px; padding: 9px 6px; border: none; border-radius: 9px; background: transparent;
+    color: #8a80a8; font-weight: 600; font-size: 11px; cursor: pointer; transition: all 0.2s;
+  }
+  .subnav button.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
+  .subpanel { display: none; }
+  .subpanel.active { display: block; }
+
+  .plan-badge {
+    display: inline-block; padding: 6px 16px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    margin-bottom: 16px; letter-spacing: 0.5px;
+  }
+  .plan-badge.starter { background: var(--row-bg); color: var(--muted); border: 1px solid #e2dbf5; }
+  .plan-badge.lite { background: rgba(34, 197, 94, 0.12); color: #16a34a; border: 1px solid #22c55e; }
+  .plan-badge.pro { background: rgba(123, 47, 247, 0.1); color: #6b21d0; border: 1px solid #9e5cff; }
+
+  .pkg-card {
+    background: var(--input-bg); border: 2px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 12px;
+    cursor: pointer; transition: 0.2s;
+  }
+  .pkg-card.selected { border-color: #9e5cff; background: rgba(123,47,247,0.06); }
+  .pkg-card .pkg-name { font-weight: 700; color: var(--text); font-size: 15px; }
+  .pkg-card .pkg-price { color: #7b2ff7; font-weight: 700; font-size: 18px; margin: 4px 0; }
+  .pkg-card .pkg-desc { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+
+  .locked-cmd { color: #e0454a; font-size: 12px; }
+  .info-box { background: var(--input-bg); border: 1px solid #e2dbf5; border-radius: 12px; padding: 14px 16px; font-size: 12.5px; color: #5b5478; margin-bottom: 12px; line-height: 1.6; }
+  .ussd-box { background: #fbf6ff; border: 1px solid #e6d6ff; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
+  .ussd-box .ussd-title { color: #6b21d0; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+  .ussd-box ol { margin: 0 0 8px 18px; padding: 0; color: #4a4266; font-size: 13px; line-height: 1.9; }
+  .ussd-box .ussd-detail { display: flex; justify-content: space-between; background: var(--card-bg); border: 1px solid #ecdcff; border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
+  .ussd-box .ussd-detail b { color: #4a00e0; }
+  .verify-btn-wa {
+    display: block; text-align: center; width: 100%; padding: 15px 16px; border-radius: 14px;
+    background: #22c55e; color: #fff; font-size: 15px; font-weight: 700; text-decoration: none;
+    margin-top: 6px; transition: transform 0.15s;
+  }
+  .verify-btn-wa:hover { transform: translateY(-2px); }
+  .ref-link-box { display: flex; gap: 8px; margin-bottom: 10px; }
+  .ref-link-box input { flex: 1; margin-bottom: 0; }
+  .stat-row { display: flex; justify-content: space-between; background: var(--input-bg); border: 1px solid #e2dbf5; border-radius: 10px; padding: 11px 14px; margin-bottom: 8px; font-size: 13px; }
+  .stat-row b { color: var(--text); }
+  .bug-sidebar-header {
+    padding: 20px 22px; border-bottom: 1px solid #ece6fb; display: flex;
+    align-items: center; justify-content: space-between;
+  }
+  .bug-sidebar-header h2 { color: #4a00e0; font-size: 17px; }
+  .bug-sidebar-body { padding: 18px 22px; overflow-y: auto; flex: 1; }
+  .bug-form { margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px dashed #ece6fb; }
+  .bug-form textarea { min-height: 80px; resize: vertical; }
+  .bug-list-title { font-size: 12px; color: #8a80a8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 700; }
+  .bug-item {
+    background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 10px;
+  }
+  .bug-item .bug-name { color: #6b21d0; font-weight: 700; font-size: 13px; }
+  .bug-item .bug-time { color: #a79ec2; font-size: 11px; float: right; }
+  .bug-item .bug-msg { color: #4a4266; font-size: 13px; margin-top: 6px; line-height: 1.4; white-space: pre-wrap; }
+  .bug-empty { color: #a79ec2; font-size: 13px; text-align: center; padding: 30px 0; }
+  .sidebar-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(20,10,40,0.35); z-index: 850;
+  }
+  .sidebar-overlay.show { display: block; }
+
+  @media (max-width: 640px) {
+    .topbar-title { font-size: 13px; }
+    .card { padding: 28px 22px; }
+    .hero h2 { font-size: 24px; }
+    .layout { padding: 24px 16px 60px; }
+    .bottom-nav-btn { font-size: 9.5px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Left side menu -->
+  <div class="menu-overlay" id="menu-overlay"></div>
+  <nav class="side-menu" id="side-menu">
+    <div class="side-brand">
+      <img src="https://files.catbox.moe/pc5uec.png" alt="Bukobero jr logo" />
+      <div>
+        <h1>Bukobero jr</h1>
+        <span>WhatsApp Bot Dashboard</span>
+      </div>
+    </div>
+    <div class="side-nav">
+      <button class="side-link active" data-nav="pair">🔗 Link Device</button>
+      <button class="side-link" data-nav="login">⚙️ Login / Settings</button>
+      <a class="side-link" href="/license" style="display:block; text-align:center; text-decoration:none;">📜 License</a>
+      <a class="side-link" href="https://chat.whatsapp.com/J5t4uR9W99m8DJXNisMzdr" target="_blank" style="display:block; text-align:center; text-decoration:none;">💬 Join WhatsApp Group</a>
+    </div>
+    <div class="side-foot">
+      This software provided by DarkX Team
+    </div>
+  </nav>
+
+  <div class="main-wrap">
+    <div class="topbar-title">Multi-Device WhatsApp Bot Dashboard</div>
+
+    <div class="hero">
+      <h2>Link & Customize Your Bot</h2>
+      <p>Pair a WhatsApp number in seconds, then log in anytime to personalize its name, owner, and reactions.</p>
+    </div>
+
+    <div class="layout">
+      <div class="card">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="pair">🔗 Link Device</button>
+          <button class="tab-btn" data-tab="login">⚙️ Login / Settings</button>
+        </div>
+
+        <!-- PANEL 1: Link a new device via pairing code -->
+        <div class="panel active" id="panel-pair">
+          <label for="phone">WhatsApp number (with country code)</label>
+          <input type="text" id="phone" placeholder="e.g. 2557XXXXXXXX" />
+          <button class="action" id="pair-btn">Get Pairing Code</button>
+
+          <div id="status"></div>
+
+          <div id="code-box">
+            <div class="label">✨ Your Pairing Code ✨</div>
+            <div id="pairing-code">------</div>
+            <div class="label" style="margin-top:10px;">Open WhatsApp → Linked Devices → Link with phone number, then enter this code.</div>
+          </div>
+        </div>
+
+        <!-- PANEL 2: Login with an already-linked number, then edit its settings -->
+        <div class="panel" id="panel-login">
+          <div id="login-step">
+            <label for="login-phone">WhatsApp number already linked to the bot</label>
+            <input type="text" id="login-phone" placeholder="e.g. 2557XXXXXXXX" />
+            <button class="action" id="request-code-btn">Send Verification Code</button>
+            <div id="login-status"></div>
+          </div>
+
+          <div id="verify-step" style="display:none;">
+            <label for="verify-code">Enter the 6-digit code sent to your WhatsApp</label>
+            <input type="text" id="verify-code" placeholder="000000" maxlength="6" />
+            <button class="action" id="verify-btn">Verify & Continue</button>
+            <button class="link-btn" id="back-to-login">← Use a different number</button>
+          </div>
+
+          <div id="settings-step" style="display:none;">
+            <div class="subpanel active" id="sub-settings">
+            <div class="section-title">Bot Identity</div>
+            <label for="s-botName">Bot Name</label>
+            <input type="text" id="s-botName" />
+            <label for="s-ownerName">Owner Name</label>
+            <input type="text" id="s-ownerName" />
+            <label for="s-ownerNumber">Owner Number (used for owner-only commands)</label>
+            <input type="text" id="s-ownerNumber" />
+            <label for="s-prefix">Command Prefix</label>
+            <input type="text" id="s-prefix" maxlength="2" />
+
+            <div class="section-title">Status Reactions</div>
+            <label for="s-statusEmojis">Status Reaction Emojis (comma separated)</label>
+            <input type="text" id="s-statusEmojis" placeholder="🔥, 💎, 💜, ❤️" />
+
+            <div class="section-title">Chat Reactions</div>
+            <label for="s-chatEmojis">Auto Chat Reaction Emojis (comma separated)</label>
+            <input type="text" id="s-chatEmojis" placeholder="😆, 😱, 😂" />
+
+            <div class="section-title">Protection (default OFF)</div>
+            <div class="toggle-row">
+              <span>Anti-Link — remove links posted by non-admins</span>
+              <label class="switch"><input type="checkbox" id="s-antilink" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Anti-Delete — report deleted messages</span>
+              <label class="switch"><input type="checkbox" id="s-antidelete" /><span class="slider"></span></label>
+            </div>
+
+            <div class="section-title">Automation</div>
+            <div class="toggle-row">
+              <span>Auto View Status</span>
+              <label class="switch"><input type="checkbox" id="s-autoViewStatus" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto React to Status</span>
+              <label class="switch"><input type="checkbox" id="s-autoReactStatus" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto Read Chats</span>
+              <label class="switch"><input type="checkbox" id="s-autoReadChat" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto React to Chats</span>
+              <label class="switch"><input type="checkbox" id="s-autoReactChat" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto Typing Indicator</span>
+              <label class="switch"><input type="checkbox" id="s-autoTyping" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto Recording Indicator</span>
+              <label class="switch"><input type="checkbox" id="s-autoRecording" /><span class="slider"></span></label>
+            </div>
+
+            <div class="section-title">Media Storage (optional)</div>
+            <label for="s-mongoUrl">Your own MongoDB URL — leave empty to use the shared bot database (text only, no media stored)</label>
+            <input type="text" id="s-mongoUrl" placeholder="mongodb+srv://user:pass@cluster.mongodb.net/mydb" />
+            <div class="info-box">Set this to unlock media saving: view-once, statuses, and anti-delete recovery will be stored in <b>your own</b> database instead. Without it, the bot never stores media anywhere.</div>
+            <div class="toggle-row">
+              <span>Auto View-Once — forward every view-once media straight to your DM, silently</span>
+              <label class="switch"><input type="checkbox" id="s-autoViewOnce" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto Save Status — save every contact's status automatically (needs Mongo URL above)</span>
+              <label class="switch"><input type="checkbox" id="s-autoSaveStatus" /><span class="slider"></span></label>
+            </div>
+
+            <button class="action" id="save-settings-btn">Save Settings</button>
+            <button class="link-btn" id="logout-btn">Log out</button>
+            <div id="settings-status"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      This software provided by DarkX Team<br/>
+      <a href="/license" style="color:inherit;">📜 License</a> &nbsp;•&nbsp;
+      <a href="https://chat.whatsapp.com/J5t4uR9W99m8DJXNisMzdr" target="_blank" style="color:inherit;">💬 Join WhatsApp Group</a>
+    </footer>
+  </div>
+
+  <!-- Bottom nav bar -->
+  <nav class="bottom-nav">
+    <button class="bottom-nav-btn" id="menu-toggle"><span class="icon">☰</span>Menu</button>
+    <button class="bottom-nav-btn" id="theme-toggle-btn"><span class="icon" id="theme-toggle-icon">🌙</span>Theme</button>
+  </nav>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
