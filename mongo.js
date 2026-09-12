@@ -8,18 +8,13 @@
 
 const { MongoClient } = require('mongodb');
 
-const uri = process.env.MONGODB_URI || '';
+const uri = process.env.MONGODB_URI ||
+    'mongodb+srv://mrxdeveloper2_db_user:P0DWc9vFOXICW4aa@cluster0.8n43fok.mongodb.net/?appName=Cluster0';
 
 let client = null;
 let dbPromise = null;
 
 function getDb() {
-    if (!uri) {
-        throw new Error(
-            'MONGODB_URI is not set. Add your own MongoDB connection string as an environment ' +
-            'variable before starting the bot — this project never falls back to a shared database.'
-        );
-    }
     if (!dbPromise) {
         client = new MongoClient(uri, {
             maxPoolSize: 20,
