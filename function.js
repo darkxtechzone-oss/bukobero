@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Project: Bukobero jr
+ * Project: DARKX-ULTRA 2026/27
  * Owner: DarkX Team
  * Universal Utility Functions for Media and Data Handling
  */

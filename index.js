@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Project: Bukobero jr
+ * Project: DARKX-ULTRA 2026/27
  * Multi-device session engine.
  * Each paired phone number gets its own Baileys socket + its own auth
  * saved in MongoDB, so many numbers can be connected at the same time —

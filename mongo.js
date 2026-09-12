@@ -28,7 +28,7 @@ function getDb() {
         dbPromise = client.connect()
             .then((c) => {
                 console.log('🗄️  Connected to MongoDB');
-                return c.db('bukobero_jr');
+                return c.db('darkx_ultra_2026_27');
             })
             .catch((err) => {
                 console.error('❌ MongoDB connection failed:', err.message);

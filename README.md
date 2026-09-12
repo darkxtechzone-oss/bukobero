@@ -1,4 +1,4 @@
-# Bukobero jr
+# DARKX-ULTRA 2026/27
 
 Multi-device WhatsApp bot with a simple web dashboard for pairing and
 settings. **This software provided by DarkX Team** — see [LICENSE](#license)

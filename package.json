@@ -1,7 +1,7 @@
 {
-  "name": "bukobero-jr",
+  "name": "darkx-ultra-2026-27",
   "version": "1.0.0",
-  "description": "Bukobero jr — multi-device WhatsApp bot. This software provided by DarkX Team.",
+  "description": "DARKX-ULTRA 2026/27 — multi-device WhatsApp bot. This software provided by DarkX Team.",
   "main": "start.js",
   "scripts": {
     "start": "node start.js"

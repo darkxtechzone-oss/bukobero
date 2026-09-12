@@ -1,8 +1,8 @@
 {
-  "name": "Bukobero jr",
-  "description": "Multi-device WhatsApp Bot — Bukobero jr. This software provided by DarkX Team.",
+  "name": "DARKX-ULTRA 2026/27",
+  "description": "Multi-device WhatsApp Bot — DARKX-ULTRA 2026/27. This software provided by DarkX Team.",
   "logo": "https://files.catbox.moe/pc5uec.png",
-  "keywords": ["bot", "whatsapp", "baileys", "bukobero-jr", "mongodb"],
+  "keywords": ["bot", "whatsapp", "baileys", "darkx-ultra-2026-27", "mongodb"],
   "env": {
     "MONGODB_URI": {
       "description": "MongoDB connection string used to store WhatsApp session credentials",

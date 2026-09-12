@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Project: Bukobero jr
+ * Project: DARKX-ULTRA 2026/27
  * Socket.IO bridge between the web pairing page and the bot engine.
  */
 

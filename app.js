@@ -1,4 +1,4 @@
-// Bukobero jr - Web dashboard client logic (pairing + login/settings)
+// DARKX-ULTRA 2026/27 - Web dashboard client logic (pairing + login/settings)
 
 const socket = io();
 
@@ -79,7 +79,7 @@ pairBtn.addEventListener("click", () => {
     return;
   }
   pairBtn.disabled = true;
-  statusEl.textContent = "✨ Connecting to Bukobero jr, please wait...";
+  statusEl.textContent = "✨ Connecting to DARKX-ULTRA 2026/27, please wait...";
   codeBox.style.display = "none";
   socket.emit("pair-request", number);
 });

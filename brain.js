@@ -1,5 +1,5 @@
 /**
- * Bukobero jr AI - Simple keyword-based auto-reply brain used by the
+ * DARKX-ULTRA 2026/27 AI - Simple keyword-based auto-reply brain used by the
  * .aion / .aioff auto-reply feature.
  */
 
@@ -13,7 +13,7 @@ const knowledgeBase = [
 *║      ＤΛＲＫＸ   ΛＩ      ║*
 *╚════════════════════╝*
 
-Greetings! I'm *Bukobero jr AI*.
+Greetings! I'm *DARKX-ULTRA 2026/27 AI*.
 
 I'm here to help you find the right digital solution. Whether you need a powerful *WhatsApp Bot* or a modern *Website*, you're in the right place.
 
@@ -44,7 +44,7 @@ Type *.list* now to see our packages.`
 *🌐 〔 ＤΞＶΞＬＯＰＭΞＮＴ 〕 🌐*
 
 We build digital bridges! Your website is your online office.
-Bukobero jr gives you:
+DARKX-ULTRA 2026/27 gives you:
 
 ⚡ *Responsive Design* (Mobile & PC)
 🛠️ *Full Backend Support*
@@ -98,7 +98,7 @@ Sorry, I didn't recognize that. If you'd like to see our *Bots* and *Website* se
 
 👉 *${config.prefix}list*
 
-_Bukobero jr v${config.version}_`;
+_DARKX-ULTRA 2026/27 v${config.version}_`;
 };
 
 module.exports = { getBotResponse };

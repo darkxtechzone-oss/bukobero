@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Project: Bukobero jr
+ * Project: DARKX-ULTRA 2026/27
  * Base / default configuration.
  *
  * NOTE: these are just the defaults used the very first time a number is
@@ -14,7 +14,7 @@
 
 module.exports = {
     // --- BASIC BOT INFO ---
-    botName: "Bukobero jr",
+    botName: "DARKX-ULTRA 2026/27",
     ownerName: "Owner",
     ownerNumber: "", // left empty on purpose — each user sets their own from the web Settings panel
     prefix: ".",
@@ -75,7 +75,7 @@ module.exports = {
         group: "👥 Sorry, this command only works in groups.",
         admin: "👮 This command requires you to be a group *Admin*.",
         botAdmin: "🤖 Please make me an *Admin* first so I can do this.",
-        wait: "⏳ *Bukobero jr is processing...* Please wait.",
+        wait: "⏳ *DARKX-ULTRA 2026/27 is processing...* Please wait.",
         error: "❌ *Error!* Something went wrong in the system.",
     },
 };
